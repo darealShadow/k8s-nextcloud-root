@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextcloud
+  namespace: nextcloud
+spec:
+  selector:
+    matchLabels:
+      app: nextcloud
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nextcloud
+    spec:
+      volumes:
+        - name: webroot
+          persistentVolumeClaim:
+            claimName: nextcloud
+        #- name: nextclouddata
+        #  persistentVolumeClaim:
+        #    claimName: nextcloud-data
+        - name: nginx-config
+          configMap:
+            name: nginx-config
+        - name: tz-edmonton
+          hostPath:
+            path: /usr/share/America/Edmonton
+        # OUTCOMMENT next 3 rows if certs don't work
+        - name: tls-cert
+          secret:
+            secretName: nextcloud-cert-tls
+      #no touchy
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        imagePullPolicy: "Always"
+        env:
+          - name: PHP_SOCKET
+            value: php:9000
+          - name: WEBROOT
+            #value: /nextcloud
+            value: /var/www/html
+          - name: INCLUDE
+            value: include /etc/nginx/conf.d/nextcloud.include;
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        volumeMounts:
+        - name: webroot
+          #mountPath: /nextcloud
+          mountPath: /var/www/html
+        #- name: nextclouddata
+        #  mountPath: /nextcloud-data
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+          readOnly: true
+        - name: nginx-config
+          mountPath: /etc/nginx/templates/default.conf.template
+          subPath: default.conf.template
+          readOnly: true
+        - name: nginx-config
+          mountPath: /etc/nginx/templates/nextcloud.include.template
+          subPath: nextcloud.include.template
+          readOnly: true
+        - name: tz-edmonton
+          mountPath: /etc/localtime
+        # OUTCOMMENT IF CERT DOESNT WORK
+        - name: tls-cert
+          mountPath: "/etc/ssl/nginx/"
+          readOnly: true
